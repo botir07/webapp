@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LogiBot — Новый заказ</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --ink:      #0D1117;
+    --ink-2:    #3D4451;
+    --ink-3:    #8B92A5;
+    --paper:    #F7F8FA;
+    --white:    #FFFFFF;
+    --accent:   #FF5C00;
+    --accent-2: #FF8C42;
+    --ok:       #1DB87A;
+    --border:   #E4E7EE;
+    --radius:   14px;
+    --font:     'Inter', -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    padding-bottom: 120px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .logo-text p {
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  /* ── Progress ── */
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .progress-step {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background .3s;
+  }
+  .progress-step.done { background: var(--ok); }
+  .progress-step.active { background: var(--accent); }
+  .progress-label {
+    font-size: 11px;
+    color: var(--ink-3);
+    white-space: nowrap;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* ── Panels ── */
+  .panel {
+    display: none;
+    padding: 20px 16px 0;
+    animation: fadeUp .25s ease;
+  }
+  .panel.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .panel-sub {
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* ── Form elements ── */
+  .field {
+    margin-bottom: 14px;
+  }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 6px;
+  }
+  .field input, .field textarea {
+    width: 100%;
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px 15px;
+    font-size: 15px;
+    color: var(--ink);
+    font-family: var(--font);
+    outline: none;
+    transition: border-color .2s;
+    -webkit-appearance: none;
+  }
+  .field input:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field textarea {
+    resize: none;
+    min-height: 80px;
+  }
+  .field input::placeholder, .field textarea::placeholder {
+    color: var(--ink-3);
+  }
+
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* ── Chip picker ── */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .chip {
+    padding: 8px 14px;
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .chip:active { transform: scale(.96); }
+  .chip.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .chip-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 8px;
+  }
+
+  /* ── Route card ── */
+  .route-card {
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .route-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 15px;
+  }
+  .route-row + .route-row {
+    border-top: 1px solid var(--border);
+  }
+  .route-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .route-icon.from { background: #FFF0E8; }
+  .route-icon.to   { background: #E8F9F1; }
+  .route-row input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    color: var(--ink);
+    font-family: var(--font);
+    background: transparent;
+    padding: 0;
+  }
+  .route-row input::placeholder { color: var(--ink-3); }
+
+  /* ── Summary ── */
+  .summary-card {
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    font-size: 14px;
+    gap: 12px;
+  }
+  .summary-row + .summary-row { border-top: 1px solid var(--border); }
+  .summary-key {
+    color: var(--ink-3);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .summary-val {
+    color: var(--ink);
+    font-weight: 500;
+    text-align: right;
+  }
+  .route-arrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .city-badge {
+    background: var(--paper);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .arrow-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    position: relative;
+    min-width: 20px;
+  }
+  .arrow-line::after {
+    content: '›';
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-3);
+    font-size: 16px;
+  }
+
+  .price-banner {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+  .price-banner .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    opacity: .8;
+    margin-bottom: 4px;
+  }
+  .price-banner .amount {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .price-banner .note {
+    font-size: 12px;
+    opacity: .8;
+  }
+
+  /* ── Bottom bar ── */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 20;
+  }
+  .btn {
+    flex: 1;
+    height: 52px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: transform .1s, opacity .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: var(--paper);
+    color: var(--ink-2);
+    border: 1.5px solid var(--border);
+    flex: 0 0 52px;
+  }
+
+  .error-msg {
+    font-size: 12px;
+    color: #E53935;
+    margin-top: 5px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* ── Spinner ── */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2.5px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo">🚚</div>
+    <div class="logo-text">
+      <h1>LogiBot</h1>
+      <p>Грузоперевозки по Узбекистану</p>
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-step active" id="ps1"></div>
+    <div class="progress-step" id="ps2"></div>
+    <div class="progress-step" id="ps3"></div>
+    <div class="progress-step" id="ps4"></div>
+    <span class="progress-label" id="step-label">Шаг 1 из 4</span>
+  </div>
+</div>
+
+<!-- STEP 1: Cargo type -->
+<div class="panel active" id="panel-1">
+  <p class="panel-title">Что везём?</p>
+  <p class="panel-sub">Выберите тип груза или опишите своими словами</p>
+
+  <div class="chip-label">Популярное</div>
+  <div class="chips" id="cargo-chips">
+    <div class="chip" onclick="selectChip(this, 'cargo')">📦 Стройматериалы</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">🛋 Мебель</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">🥦 Продукты</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">⚙️ Оборудование</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">👗 Одежда/Текстиль</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">🏗 Металл</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">🌾 Зерно/Корм</div>
+    <div class="chip" onclick="selectChip(this, 'cargo')">📱 Электроника</div>
+  </div>
+
+  <div class="field">
+    <label>Или опишите груз</label>
+    <input type="text" id="cargo-custom" placeholder="Например: керамическая плитка" oninput="onCargoInput()" maxlength="80">
+    <div class="error-msg" id="err-cargo">Укажите тип груза</div>
+  </div>
+
+  <div class="field">
+    <label>Комментарий (необязательно)</label>
+    <textarea id="cargo-notes" placeholder="Хрупкий груз, нужен кран, температурный режим..." maxlength="200"></textarea>
+  </div>
+</div>
+
+<!-- STEP 2: Weight & Volume -->
+<div class="panel" id="panel-2">
+  <p class="panel-title">Вес и объём</p>
+  <p class="panel-sub">Укажите точнее — водитель подберёт нужный грузовик</p>
+
+  <div class="chip-label">Вес груза</div>
+  <div class="chips" id="weight-chips">
+    <div class="chip" onclick="selectChip(this, 'weight'); setField('weight', '100')">До 100 кг</div>
+    <div class="chip" onclick="selectChip(this, 'weight'); setField('weight', '500')">500 кг</div>
+    <div class="chip" onclick="selectChip(this, 'weight'); setField('weight', '1000')">1 тонна</div>
+    <div class="chip" onclick="selectChip(this, 'weight'); setField('weight', '3000')">3 тонны</div>
+    <div class="chip" onclick="selectChip(this, 'weight'); setField('weight', '5000')">5 тонн</div>
+    <div class="chip" onclick="selectChip(this, 'weight'); setField('weight', '10000')">10 тонн</div>
+  </div>
+
+  <div class="row-2">
+    <div class="field">
+      <label>Вес (кг)</label>
+      <input type="number" id="weight" placeholder="0" min="1" oninput="syncChip('weight', 'weight-chips')">
+      <div class="error-msg" id="err-weight">Укажите вес</div>
+    </div>
+    <div class="field">
+      <label>Объём (м³)</label>
+      <input type="number" id="volume" placeholder="0.0" step="0.5" min="0.1" oninput="syncChip('volume', 'volume-chips')">
+      <div class="error-msg" id="err-volume">Укажите объём</div>
+    </div>
+  </div>
+
+  <div class="chip-label">Объём груза</div>
+  <div class="chips" id="volume-chips">
+    <div class="chip" onclick="selectChip(this, 'volume'); setField('volume', '1')">1 м³</div>
+    <div class="chip" onclick="selectChip(this, 'volume'); setField('volume', '5')">5 м³</div>
+    <div class="chip" onclick="selectChip(this, 'volume'); setField('volume', '10')">10 м³</div>
+    <div class="chip" onclick="selectChip(this, 'volume'); setField('volume', '20')">20 м³</div>
+    <div class="chip" onclick="selectChip(this, 'volume'); setField('volume', '40')">40 м³</div>
+    <div class="chip" onclick="selectChip(this, 'volume'); setField('volume', '82')">82 м³</div>
+  </div>
+</div>
+
+<!-- STEP 3: Route -->
+<div class="panel" id="panel-3">
+  <p class="panel-title">Маршрут</p>
+  <p class="panel-sub">Откуда забрать и куда доставить</p>
+
+  <div class="route-card">
+    <div class="route-row">
+      <div class="route-icon from">📍</div>
+      <input type="text" id="from-city" placeholder="Город отправления" oninput="cityAutocomplete('from-city', 'from-suggestions')" autocomplete="off">
+    </div>
+    <div class="route-row" style="padding: 0 15px 0 61px; border-top: none;">
+      <input type="text" id="from-addr" placeholder="Адрес (улица, дом) — необязательно" style="font-size:13px; color: var(--ink-3); padding: 8px 0;">
+    </div>
+    <div class="route-row" style="border-top: 1px solid var(--border);">
+      <div class="route-icon to">🏁</div>
+      <input type="text" id="to-city" placeholder="Город назначения" oninput="cityAutocomplete('to-city', 'to-suggestions')" autocomplete="off">
+    </div>
+    <div class="route-row" style="padding: 0 15px 0 61px; border-top: none;">
+      <input type="text" id="to-addr" placeholder="Адрес (улица, дом) — необязательно" style="font-size:13px; color: var(--ink-3); padding: 8px 0;">
+    </div>
+  </div>
+
+  <div class="error-msg show" id="err-route" style="display:none; margin-bottom: 8px;"></div>
+
+  <div class="chip-label">Популярные города</div>
+  <div class="chips">
+    <div class="chip" onclick="setRoute('from-city', this.textContent)">Ташкент</div>
+    <div class="chip" onclick="setRoute('from-city', this.textContent)">Самарканд</div>
+    <div class="chip" onclick="setRoute('from-city', this.textContent)">Фергана</div>
+    <div class="chip" onclick="setRoute('from-city', this.textContent)">Бухара</div>
+    <div class="chip" onclick="setRoute('from-city', this.textContent)">Наманган</div>
+    <div class="chip" onclick="setRoute('from-city', this.textContent)">Андижан</div>
+    <div class="chip" onclick="setRoute('to-city', this.textContent)">Нукус</div>
+    <div class="chip" onclick="setRoute('to-city', this.textContent)">Термез</div>
+  </div>
+</div>
+
+<!-- STEP 4: Summary -->
+<div class="panel" id="panel-4">
+  <p class="panel-title">Всё верно?</p>
+  <p class="panel-sub">Проверьте детали перед отправкой</p>
+
+  <div class="price-banner" id="price-banner">
+    <div class="label">⚡ ИИ-оценка стоимости</div>
+    <div class="amount" id="price-amount">Считаем...</div>
+    <div class="note" id="price-note">Groq AI анализирует маршрут и груз</div>
+  </div>
+
+  <div class="summary-card" id="summary-card"></div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar">
+  <button class="btn btn-secondary" id="btn-back" onclick="prevStep()" style="display:none">←</button>
+  <button class="btn btn-primary" id="btn-next" onclick="nextStep()">Далее →</button>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+
+// ── State ──────────────────────────────────────────────────────
+const state = {
+  step: 1,
+  cargo_type: '',
+  weight_kg: null,
+  volume_m3: null,
+  from_city: '',
+  from_address: '',
+  to_city: '',
+  to_address: '',
+  notes: '',
+};
+
+const STEPS = 4;
+const STEP_LABELS = ['Тип груза', 'Вес и объём', 'Маршрут', 'Подтверждение'];
+
+// ── Navigation ─────────────────────────────────────────────────
+function updateProgress() {
+  for (let i = 1; i <= STEPS; i++) {
+    const el = document.getElementById('ps' + i);
+    if (i < state.step) el.className = 'progress-step done';
+    else if (i === state.step) el.className = 'progress-step active';
+    else el.className = 'progress-step';
+  }
+  document.getElementById('step-label').textContent = `Шаг ${state.step} из ${STEPS}`;
+  document.getElementById('btn-back').style.display = state.step > 1 ? 'block' : 'none';
+  const btn = document.getElementById('btn-next');
+  btn.textContent = state.step === STEPS ? '🚀 Отправить заявку' : 'Далее →';
+}
+
+function showPanel(n) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + n).classList.add('active');
+}
+
+function prevStep() {
+  if (state.step <= 1) return;
+  state.step--;
+  showPanel(state.step);
+  updateProgress();
+}
+
+function nextStep() {
+  if (!validateStep(state.step)) return;
+  collectStep(state.step);
+
+  if (state.step === STEPS) {
+    submitOrder();
+    return;
+  }
+
+  state.step++;
+  if (state.step === STEPS) buildSummary();
+  showPanel(state.step);
+  updateProgress();
+}
+
+// ── Validation ─────────────────────────────────────────────────
+function validateStep(n) {
+  if (n === 1) {
+    const val = state.cargo_type || document.getElementById('cargo-custom').value.trim();
+    if (!val) { showErr('err-cargo'); return false; }
+    return true;
+  }
+  if (n === 2) {
+    const w = parseFloat(document.getElementById('weight').value);
+    const v = parseFloat(document.getElementById('volume').value);
+    let ok = true;
+    if (!w || w <= 0) { showErr('err-weight'); ok = false; }
+    if (!v || v <= 0) { showErr('err-volume'); ok = false; }
+    return ok;
+  }
+  if (n === 3) {
+    const fc = document.getElementById('from-city').value.trim();
+    const tc = document.getElementById('to-city').value.trim();
+    if (!fc || !tc) {
+      const err = document.getElementById('err-route');
+      err.textContent = 'Укажите города отправления и назначения';
+      err.style.display = 'block';
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+function showErr(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3000); }
+}
+
+// ── Collect ────────────────────────────────────────────────────
+function collectStep(n) {
+  if (n === 1) {
+    state.cargo_type = state.cargo_type || document.getElementById('cargo-custom').value.trim();
+    state.notes = document.getElementById('cargo-notes').value.trim();
+  }
+  if (n === 2) {
+    state.weight_kg = parseFloat(document.getElementById('weight').value);
+    state.volume_m3 = parseFloat(document.getElementById('volume').value);
+  }
+  if (n === 3) {
+    state.from_city = document.getElementById('from-city').value.trim();
+    state.from_address = document.getElementById('from-addr').value.trim();
+    state.to_city = document.getElementById('to-city').value.trim();
+    state.to_address = document.getElementById('to-addr').value.trim();
+  }
+}
+
+// ── Chips ──────────────────────────────────────────────────────
+function selectChip(el, group) {
+  document.querySelectorAll(`#${group}-chips .chip`).forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  if (group === 'cargo') {
+    state.cargo_type = el.textContent.replace(/^[\p{Emoji}\s]+/u, '').trim();
+    document.getElementById('cargo-custom').value = '';
+    document.getElementById('err-cargo').classList.remove('show');
+  }
+}
+
+function onCargoInput() {
+  state.cargo_type = '';
+  document.querySelectorAll('#cargo-chips .chip').forEach(c => c.classList.remove('selected'));
+}
+
+function setField(id, val) {
+  document.getElementById(id).value = val;
+  document.getElementById('err-' + id)?.classList.remove('show');
+}
+
+function syncChip(fieldId, chipsId) {
+  document.querySelectorAll('#' + chipsId + ' .chip').forEach(c => c.classList.remove('selected'));
+}
+
+function setRoute(fieldId, city) {
+  const el = document.getElementById(fieldId);
+  el.value = city;
+  el.focus();
+  document.getElementById('err-route').style.display = 'none';
+}
+
+// ── Summary ────────────────────────────────────────────────────
+function buildSummary() {
+  const sc = document.getElementById('summary-card');
+  const cargo = state.cargo_type || document.getElementById('cargo-custom').value.trim();
+  sc.innerHTML = `
+    <div class="summary-row">
+      <span class="summary-key">Груз</span>
+      <span class="summary-val">${cargo}</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-key">Вес / Объём</span>
+      <span class="summary-val">${state.weight_kg} кг / ${state.volume_m3} м³</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-key">Маршрут</span>
+      <span class="summary-val route-arrow">
+        <span class="city-badge">${state.from_city}</span>
+        <span class="arrow-line"></span>
+        <span class="city-badge">${state.to_city}</span>
+      </span>
+    </div>
+    ${state.from_address ? `<div class="summary-row"><span class="summary-key">Откуда</span><span class="summary-val">${state.from_address}</span></div>` : ''}
+    ${state.to_address ? `<div class="summary-row"><span class="summary-key">Куда</span><span class="summary-val">${state.to_address}</span></div>` : ''}
+    ${state.notes ? `<div class="summary-row"><span class="summary-key">Комментарий</span><span class="summary-val">${state.notes}</span></div>` : ''}
+  `;
+
+  // Локальная оценка цены (пока бэкенд не вернул)
+  estimatePrice();
+}
+
+function estimatePrice() {
+  const w = state.weight_kg || 0;
+  const v = state.volume_m3 || 0;
+  const base = w * 150 + v * 8000 + 20000;
+  const min = Math.round(base * 0.85 / 1000) * 1000;
+  const max = Math.round(base * 1.2 / 1000) * 1000;
+  document.getElementById('price-amount').textContent =
+    `${min.toLocaleString('ru')} – ${max.toLocaleString('ru')} сум`;
+  document.getElementById('price-note').textContent =
+    'Предварительная оценка • Точная цена согласовывается с водителем';
+}
+
+// ── Submit ─────────────────────────────────────────────────────
+function submitOrder() {
+  const btn = document.getElementById('btn-next');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Отправляем...';
+
+  const payload = {
+    cargo_type: state.cargo_type || document.getElementById('cargo-custom').value.trim(),
+    weight_kg: state.weight_kg,
+    volume_m3: state.volume_m3,
+    from_city: state.from_city,
+    from_address: state.from_address || null,
+    to_city: state.to_city,
+    to_address: state.to_address || null,
+    notes: state.notes || null,
+  };
+
+  if (tg) {
+    tg.sendData(JSON.stringify(payload));
+  } else {
+    // Режим отладки без Telegram
+    console.log('Order payload:', payload);
+    alert('Debug mode:\n' + JSON.stringify(payload, null, 2));
+    btn.disabled = false;
+    btn.textContent = '🚀 Отправить заявку';
+  }
+}
+
+updateProgress();
+</script>
+</body>
+</html>
